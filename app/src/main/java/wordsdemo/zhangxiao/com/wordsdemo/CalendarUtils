@@ -1,0 +1,252 @@
+package com.wordsdemo;
+
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteException;
+import android.net.Uri;
+import android.provider.CalendarContract;
+
+import java.util.TimeZone;
+
+/**
+ * 日历事件相关util工具类
+ *
+ * @author ZhangXiao
+ * @date 2018/1/25
+ */
+
+public class CalendarUtils {
+
+    private static final int DEFAULT_CALENDAR_ID = 3;
+
+
+    /**
+     * 取消小米推送push
+     *
+     * @param context  上下文内容
+     * @param courseId 课程id
+     */
+
+    /**
+     * 插入日程内容
+     *
+     * @param cr          contentprovider 查询实例
+     * @param courseId    课程Id
+     * @param startTime   开始时间
+     * @param endTime     结束时间
+     * @param title       标题
+     * @param descContent 内容
+     * @return 插入成功后的时间Id
+     */
+    public static long addEventContent(ContentResolver cr, String courseId, long startTime, long endTime, String title, String descContent) {
+        try {
+
+            ContentValues values = new ContentValues();
+            values.put(CalendarContract.Events.DTSTART, startTime);
+            values.put(CalendarContract.Events.DTEND, endTime);
+            values.put(CalendarContract.Events.TITLE, title);
+            values.put(CalendarContract.Events.DESCRIPTION, descContent);
+            values.put(CalendarContract.Events.CALENDAR_ID, DEFAULT_CALENDAR_ID);
+            values.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
+            Uri uri = cr.insert(CalendarContract.Events.CONTENT_URI, values);
+
+            return Long.parseLong(uri.getLastPathSegment());
+        } catch (SQLiteException | SecurityException e) {
+        }
+        return 0;
+    }
+
+    /**
+     * 插入日程内容
+     *
+     * @param cr    contentprovider 查询实例
+     * @param param 插入参数builder对象
+     * @return 插入成功后的时间Id
+     */
+    public static long addEventContent(ContentResolver cr, CalendarParam param) {
+
+        if (param == null) {
+            return -1;
+        }
+
+        return addEventContent(cr, param.getCourseId(), param.getStartTime(), param.getEndTime(), param.getTitle(), param.getDescContent());
+    }
+
+    /**
+     * 日程事件中是否包含课程id对应的事件
+     *
+     * @param cr       contentprovider 查询实例
+     * @param courseId 课程id
+     * @return ture 改课程已经在日程事件中
+     */
+    public static boolean containCourseIdInEvent(ContentResolver cr, String courseId) {
+        return getEventIdByCourseId(cr, courseId) > -1;
+    }
+
+    /**
+     * 获取课程id对应的日程事件
+     *
+     * @param cr       contentprovider 查询实例
+     * @param courseId 课程id
+     * @return -1没有查询到课程id  其他为返回课程对应事件的id主键
+     */
+    public static long getEventIdByCourseId(ContentResolver cr, String courseId) {
+        Uri uri = CalendarContract.Events.CONTENT_URI;
+        String selection = "((" + CalendarContract.Events.CALENDAR_ID + " = " + DEFAULT_CALENDAR_ID + " )" +
+//                "AND (" + CalendarContract.Events.EVENT_LOCATION + " = ?)" +
+                ")";
+        String[] selectionArgs = new String[]{String.valueOf(courseId)};
+        String[] eventColoum = new String[]{CalendarContract.Events.CALENDAR_ID
+//                ,CalendarContract.Events.EVENT_LOCATION
+        };
+        Cursor eventCursor = null;
+        try {
+            eventCursor = cr.query(uri, eventColoum, selection, selectionArgs, null);
+            if (eventCursor == null) {
+                //查询返回空值
+                return -1;
+            }
+            if (eventCursor.moveToNext()) {
+                return eventCursor.getInt(eventCursor.getColumnIndex(CalendarContract.Events.CALENDAR_ID));
+            } else {
+                return -1;
+            }
+        } catch (SQLiteException | SecurityException e) {
+            return -1;
+        } finally {
+            if (eventCursor != null) {
+                eventCursor.close();
+            }
+        }
+
+    }
+
+    /**
+     * 更新对应课程id的内容
+     *
+     * @param cr       contentprovider 查询实例
+     * @param courseId 课程id
+     * @param values   内容值
+     * @return 更新成功的行数
+     */
+    public static int updateEventByCourseId(ContentResolver cr, String courseId, ContentValues values) {
+        try {
+            Uri updateUri = CalendarContract.Events.CONTENT_URI;
+            String selection = "((" + CalendarContract.Events.CALENDAR_ID + " = " + DEFAULT_CALENDAR_ID + " )" +
+//                    "AND (" + CalendarContract.Events.EVENT_LOCATION + " = ?)" +
+                    ")";
+            String[] selectionArgs = new String[]{
+//                    String.valueOf(courseId)
+            };
+            return cr.update(updateUri, values, selection, selectionArgs);
+        } catch (SQLiteException | SecurityException e) {
+        }
+        return 0;
+    }
+
+
+    /**
+     * 删除对应课程id的内容
+     *
+     * @param cr       contentprovider 查询实例
+     * @param courseId 课程id
+     * @return 删除成功的行数
+     */
+    public static int deleteEventByCourseId(ContentResolver cr, int courseId) {
+        try {
+            Uri deleteUri = CalendarContract.Events.CONTENT_URI;
+            String selection = "((" + CalendarContract.Events.CALENDAR_ID + " = " + DEFAULT_CALENDAR_ID + " )" +
+//                    "AND (" + CalendarContract.Events.EVENT_LOCATION + " = ?)" +
+                    ")";
+            String[] selectionArgs = new String[]{
+//                    String.valueOf(courseId)
+            };
+            return cr.delete(deleteUri, selection, selectionArgs);
+        } catch (SQLiteException | SecurityException e) {
+        }
+        return 0;
+    }
+
+
+    public static final class CalendarParam {
+        private long startTime;
+        private long endTime;
+        private String title;
+        private String descContent;
+        private String courseId;
+
+        private CalendarParam() {
+
+        }
+
+        public long getStartTime() {
+            return startTime;
+        }
+
+        public long getEndTime() {
+            return endTime;
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public String getDescContent() {
+            return descContent;
+        }
+
+        public String getCourseId() {
+            return courseId;
+        }
+
+        private CalendarParam(Builder builder) {
+            startTime = builder.startTime;
+            endTime = builder.endTime;
+            title = builder.title;
+            descContent = builder.descContent;
+            courseId = builder.courseId;
+        }
+
+
+        public static final class Builder {
+            private long startTime;
+            private long endTime;
+            private String title;
+            private String descContent;
+            private String courseId;
+
+            public Builder() {
+            }
+
+            public Builder withStartTime(long val) {
+                startTime = val;
+                return this;
+            }
+
+            public Builder withEndTime(long val) {
+                endTime = val;
+                return this;
+            }
+
+            public Builder withTitle(String val) {
+                title = val;
+                return this;
+            }
+
+            public Builder withDescContent(String val) {
+                descContent = val;
+                return this;
+            }
+
+            public Builder withCourseId(String val) {
+                courseId = val;
+                return this;
+            }
+
+            public CalendarParam build() {
+                return new CalendarParam(this);
+            }
+        }
+    }
+}
